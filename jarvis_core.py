@@ -32,3 +32,21 @@ class TaskEngine:
     def list_tasks(self):
         """Returns all current tasks."""
         return self.tasks
+
+    def complete_task(self, task_id):
+        """Marks a specific task as completed by its ID."""
+        for task in self.tasks:
+            if task["id"] == task_id:
+                task["status"] = "completed"
+                self.save_tasks()
+                return f"Task {task_id} marked as completed!"
+        return f"Task ID {task_id} not found."
+
+    def delete_task(self, task_id):
+        """Deletes a specific task by its ID."""
+        for task in self.tasks:
+            if task["id"] == task_id:
+                self.tasks.remove(task)
+                self.save_tasks()
+                return f"Task {task_id} deleted successfully!"
+        return f"Task ID {task_id} not found."
