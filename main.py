@@ -1,33 +1,14 @@
-from jarvis_core import TaskEngine
+from jarvis_system import JarvisSystem
 
 def main():
-    print("--- JARVIS Daily Task Manager ---")
-    jarvis = TaskEngine()
-
-    # 1. Show existing tasks
-    print("\nCurrent Tasks:")
-    for task in jarvis.list_tasks():
-        print(f"[{task['id']}] {task['title']} - Status: {task['status']}")
-
-    # 2. Test completing the first task (ID: 1)
-    print("\n[Testing Complete]")
-    print(jarvis.complete_task(1))
-
-    # 3. Test adding a temporary task and deleting it
-    print("\n[Testing Add & Delete]")
-    print(jarvis.add_task("Temporary task to test deletion"))
+    print("--- JARVIS System Test ---")
+    jarvis_sys = JarvisSystem()
     
-    # Show tasks before deletion
-    for task in jarvis.list_tasks():
-        print(f"[{task['id']}] {task['title']} - Status: {task['status']}")
-
-    # Delete the temporary task (assuming it's ID 2)
-    print(jarvis.delete_task(2))
-
-    # 4. Final task list review
-    print("\nFinal Task List:")
-    for task in jarvis.list_tasks():
-        print(f"[{task['id']}] {task['title']} - Status: {task['status']}")
+    # Test system status
+    print(jarvis_sys.get_system_status())
+    
+    # Test opening notepad (fast check)
+    print(jarvis_sys.open_app("notepad"))
 
 if __name__ == "__main__":
     main()
