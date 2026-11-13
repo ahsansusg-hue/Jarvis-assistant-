@@ -1,65 +1,49 @@
+import sys
 from jarvis_core import TaskEngine
 from jarvis_system import JarvisSystem
+from jarvis_brain import JarvisBrain
 
 def main():
     task_engine = TaskEngine()
-    jarvis_sys = JarvisSystem()
-
+    brain = JarvisBrain()
+    
     print("========================================")
-    print("   JARVIS v1.0 - AI System Online       ")
+    print("   JARVIS v2.0 - AI Conversational Core ")
     print("========================================")
-    print(jarvis_sys.get_system_status())
-
+    print(JarvisSystem.get_system_status())
+    print("\nType naturally (e.g., 'open gta', 'launch windhawk', or chat with JARVIS). Type 'exit' to quit.\n")
+    
     while True:
-        print("\n--- Command Menu ---")
-        print("1. View Tasks")
-        print("2. Add Task")
-        print("3. Complete Task")
-        print("4. Delete Task")
-        print("5. Open App (VS Code, Notepad, Calc)")
-        print("6. Exit")
-
-        choice = input("\nEnter your command (1-6): ").strip()
-
-        if choice == "1":
-            tasks = task_engine.list_tasks()
-            if not tasks:
-                print("\nNo tasks found. Your queue is clean, Boss.")
+        try:
+            user_input = input("Boss > ").strip()
+            if not user_input:
+                continue
+                
+            lower_input = user_input.lower()
+            
+            if lower_input in ["exit", "quit", "shutdown"]:
+                print("JARVIS: Powering down systems. Have a good one, Boss.")
+                break
+                
+            # Quick command intercepts for system control
+            elif "open " in lower_input or "launch " in lower_input:
+                # Extract app name after open/launch
+                app_target = lower_input.replace("open ", "").replace("launch ", "")
+                result = JarvisSystem.open_app(app_target)
+                print(f"JARVIS: {result}\n")
+                
+            elif "task" in lower_input or "todo" in lower_input:
+                print("JARVIS: Task management protocols active. Use your menu or ask me to list tasks.")
+                # You can expand task intents here easily!
+                
             else:
-                print("\nCurrent Tasks:")
-                for task in tasks:
-                    print(f"[{task['id']}] {task['title']} - Status: [{task['status']}]")
-
-        elif choice == "2":
-            title = input("Enter task description: ").strip()
-            if title:
-                print(task_engine.add_task(title))
-            else:
-                print("Task title cannot be empty.")
-
-        elif choice == "3":
-            try:
-                task_id = int(input("Enter Task ID to complete: ").strip())
-                print(task_engine.complete_task(task_id))
-            except ValueError:
-                print("Please enter a valid numeric ID.")
-
-        elif choice == "4":
-            try:
-                task_id = int(input("Enter Task ID to delete: ").strip())
-                print(task_engine.delete_task(task_id))
-            except ValueError:
-                print("Please enter a valid numeric ID.")
-
-        elif choice == "5":
-            app_name = input("Which app would you like to open? (code/notepad/calc/youtube/github): ").strip()
-            print(jarvis_sys.open_app(app_name))
-
-        elif choice == "6":
-            print("\nShutting down systems. Goodbye, Boss.")
-            break
-        else:
-            print("Invalid option. Please choose between 1 and 6.")
+                # Route everything else through the Gemini AI brain with full persona
+                ai_response = brain.think(user_input)
+                print(f"JARVIS: {ai_response}\n")
+                
+        except KeyboardInterrupt:
+            print("\nJARVIS: Emergency interrupt detected. Standing by, Boss.")
+            sys.exit(0)
 
 if __name__ == "__main__":
     main()
