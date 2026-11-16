@@ -13,7 +13,7 @@ class JarvisBrain:
         self.task_engine = task_engine
 
         # Replace with your Gemini API key
-        api_key: str = "YOUR_ACTUAL_API_KEY_HERE"
+        api_key: str = "YOUR_GEMINI_API_KEY_HERE"
 
         self.system_instruction = (
             "You are JARVIS, a hyper-intelligent, hyper-efficient, loyal, and witty AI assistant "
