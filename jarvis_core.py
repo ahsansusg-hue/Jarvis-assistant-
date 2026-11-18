@@ -50,3 +50,21 @@ class TaskEngine:
                 self.save_tasks()
                 return f"Task {task_id} deleted successfully!"
         return f"Task ID {task_id} not found."
+    def complete_task(self, identifier: str) -> str:
+        word_to_num = {
+            "one": "1", "two": "2", "to": "2", "too": "2",
+            "three": "3", "four": "4", "for": "4", "five": "5",
+            "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10"
+        }
+        clean_id = word_to_num.get(identifier.lower().strip(), identifier.lower().strip())
+
+        for task in self.tasks:
+            # Match either by Task ID or by a keyword inside the title
+            if str(task.get("id")) == clean_id or clean_id in task.get("title", "").lower():
+                if task.get("status") == "completed":
+                    return f"Task {task['id']}, {task['title']}, is already marked completed, Boss."
+                task["status"] = "completed"
+                self.save_tasks()
+                return f"Marked task {task['id']}, {task['title']}, as completed, Boss."
+
+        return f"I couldn't find a task matching '{identifier}', Boss."

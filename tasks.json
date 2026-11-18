@@ -3,5 +3,15 @@
         "id": 1,
         "title": "Learn Git workflow and build Jarvis core",
         "status": "completed"
+    },
+    {
+        "id": 2,
+        "title": "for coding",
+        "status": "completed"
+    },
+    {
+        "id": 3,
+        "title": "play gta v",
+        "status": "completed"
     }
 ]
