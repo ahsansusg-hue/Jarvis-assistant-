@@ -1,90 +1,100 @@
-import sys
+import time
+from jarvis_ears import JarvisEars
+from jarvis_speaker import JarvisSpeaker
 from jarvis_core import TaskEngine
 from jarvis_system import JarvisSystem
 from jarvis_brain import JarvisBrain
-from jarvis_ears import JarvisEars
-from jarvis_speaker import JarvisSpeaker
 
 
 def main():
-    task_engine = TaskEngine()
-    brain = JarvisBrain(task_engine=task_engine)
-    ears = JarvisEars()
+    print("==========================================")
+    print("   JARVIS LOCAL SYSTEM — INITIALIZING     ")
+    print("==========================================")
+
     speaker = JarvisSpeaker()
+    listener = JarvisEars()
+    task_engine = TaskEngine()
+    system = JarvisSystem()
+    brain = JarvisBrain(task_engine=task_engine, model="qwen2.5:3b")
 
-    startup_msg = "Systems nominal. All core engines operational, Boss."
-    print("========================================")
-    print("   JARVIS v2.0 - Voice & Speech Core    ")
-    print("========================================")
-    print(JarvisSystem.get_system_status())
+    startup_msg = "All systems online and running locally, Boss."
+    print(f"JARVIS: {startup_msg}\n")
     speaker.speak(startup_msg)
-
-    print("\nJARVIS Voice Core online. Speak your commands hands-free (Ctrl+C to quit).\n")
 
     while True:
         try:
-            user_input = ears.listen_command()
-
-            if not user_input:
+            text = listener.listen_command()
+            if not text:
                 continue
 
-            if user_input.lower() in ["exit", "quit", "shutdown"]:
-                farewell = "Powering down systems. Have a good one, Boss."
-                print(f"JARVIS: {farewell}")
-                speaker.speak(farewell)
+            text = str(text).strip()
+            if not text:
+                continue
+
+            print(f"You: {text}")
+            lower = text.lower()
+
+            # --- FAST-PATH 0: Shutdown / Exit ---
+            if any(phrase in lower for phrase in ["shut down", "shutdown", "go to sleep", "exit jarvis", "goodbye jarvis"]):
+                bye_msg = "Powering down local core. Catch you later, Boss."
+                print(f"JARVIS: {bye_msg}\n")
+                speaker.speak(bye_msg)
                 break
 
-            print(f"Boss > {user_input}")
-
-            # Local Fast-Path Execution (Instant, Free, Zero Quota Waste)
-            lower = user_input.lower()
-
-            # 1. App Launcher Fast-Path
-            if "launch " in lower or "open " in lower:
-                app_name = lower.replace("launch ", "").replace("open ", "").strip()
-                result = JarvisSystem.open_app(app_name)
-                response_text = f"Opening {app_name}, Boss."
-                print(f"JARVIS: {result}\n")
-                speaker.speak(response_text)
-                continue
-
-            # 2. Voice Task Adder Fast-Path
-            if lower.startswith(("add task ", "new task ", "remind me to ")):
-                task_title = (
-                    lower.replace("add task ", "", 1)
-                    .replace("new task ", "", 1)
-                    .replace("remind me to ", "", 1)
-                    .strip()
-                )
-                if task_title:
-                    result = task_engine.add_task(task_title)
-                    print(f"JARVIS: {result}\n")
-                    speaker.speak(result)
-                else:
-                    msg = "What would you like me to add to the list, Boss?"
-                    print(f"JARVIS: {msg}\n")
-                    speaker.speak(msg)
-                continue
-
-            # 3. Read Tasks Fast-Path
-            if "list tasks" in lower or "my tasks" in lower or "read tasks" in lower:
-                raw_tasks = task_engine.list_tasks()
-                
-                # Format cleanly if TaskEngine returns a raw list of dicts
-                if isinstance(raw_tasks, list):
-                    pending = [t for t in raw_tasks if t.get("status") == "pending"]
-                    if not pending:
-                        result = "Your task list is completely clear, Boss."
-                    else:
-                        items = ", ".join([f"Task {t['id']}: {t['title']}" for t in pending])
-                        result = f"You have {len(pending)} pending tasks, Boss. {items}."
-                else:
-                    result = str(raw_tasks)
-
+            # --- FAST-PATH 1: Gaming Mode (Instant VRAM Flush) ---
+            if any(phrase in lower for phrase in ["gaming mode", "unload model", "free vram", "clear vram"]):
+                result = brain.unload_model() if hasattr(brain, "unload_model") else "VRAM flush unavailable, Boss."
                 print(f"JARVIS: {result}\n")
                 speaker.speak(result)
                 continue
-            # 4. Complete Task Fast-Path
+
+            # --- FAST-PATH 2: System Status ---
+            if any(phrase in lower for phrase in ["system status", "status report", "check system"]):
+                result = system.get_system_status()
+                print(f"JARVIS: {result}\n")
+                speaker.speak(str(result))
+                continue
+
+            # --- FAST-PATH 3: Open App ---
+            if lower.startswith("open ") or "launch " in lower:
+                app_name = lower
+                for prefix in ["jarvis ", "please ", "can you ", "launch ", "open "]:
+                    app_name = app_name.replace(prefix, "")
+                app_name = app_name.strip()
+
+                if app_name:
+                    result = system.open_app(app_name)
+                else:
+                    result = "Which app should I open, Boss?"
+
+                print(f"JARVIS: {result}\n")
+                speaker.speak(str(result))
+                continue
+
+            # --- FAST-PATH 4: Add Task ---
+            if any(phrase in lower for phrase in ["add task ", "new task ", "remind me to "]):
+                title = lower
+                for phrase in ["add task ", "new task ", "remind me to "]:
+                    title = title.replace(phrase, "")
+                title = title.strip()
+
+                if title:
+                    result = task_engine.add_task(title)
+                else:
+                    result = "What task would you like me to add, Boss?"
+
+                print(f"JARVIS: {result}\n")
+                speaker.speak(str(result))
+                continue
+
+            # --- FAST-PATH 5: Read / List Tasks ---
+            if any(phrase in lower for phrase in ["list tasks", "read tasks", "my tasks", "what are my tasks", "show tasks"]):
+                result = task_engine.list_tasks()
+                print(f"JARVIS: {result}\n")
+                speaker.speak(str(result))
+                continue
+
+            # --- FAST-PATH 6: Complete Task ---
             if any(phrase in lower for phrase in ["complete task ", "finish task ", "mark task ", "done with "]):
                 target = lower
                 for phrase in ["complete task ", "finish task ", "mark task ", "done with ", " as completed", " as done"]:
@@ -94,17 +104,23 @@ def main():
                 if target:
                     result = task_engine.complete_task(target)
                 else:
-                    result = "Which task number or name should I mark as completed, Boss?"
+                    result = "Which task should I mark as completed, Boss?"
 
                 print(f"JARVIS: {result}\n")
-                speaker.speak(result)
+                speaker.speak(str(result))
                 continue
 
+            # --- LOCAL LLM FALLBACK: General Reasoning via Ollama ---
+            reply = brain.think(text)
+            print(f"JARVIS: {reply}\n")
+            speaker.speak(str(reply))
+
         except KeyboardInterrupt:
-            interrupt_msg = "Emergency interrupt detected. Standing by, Boss."
-            print(f"\nJARVIS: {interrupt_msg}")
-            speaker.speak(interrupt_msg)
-            sys.exit(0)
+            print("\n[SYSTEM] Shutting down...")
+            break
+        except Exception as e:
+            print(f"[!] Runtime error: {e}")
+            time.sleep(0.5)
 
 
 if __name__ == "__main__":

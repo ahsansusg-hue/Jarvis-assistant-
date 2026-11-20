@@ -1,6 +1,8 @@
 import os
 import glob
 import webbrowser
+import psutil
+import subprocess
 
 class JarvisSystem:
     @staticmethod
@@ -75,5 +77,52 @@ class JarvisSystem:
 
     @staticmethod
     def get_system_status():
-        """Returns system status diagnostics."""
-        return "System nominal. All core engines operational, Boss."
+        """Returns real-time CPU, RAM, NVIDIA T1200 VRAM, and battery telemetry."""
+        try:
+            import psutil
+            import subprocess
+
+            # 1. CPU & RAM
+            cpu_pct = psutil.cpu_percent(interval=0.4)
+            ram = psutil.virtual_memory()
+            ram_used_gb = ram.used / (1024 ** 3)
+            ram_total_gb = ram.total / (1024 ** 3)
+
+            parts = [
+                f"CPU load is at {cpu_pct:.0f} percent",
+                f"RAM is at {ram.percent:.0f} percent, using {ram_used_gb:.1f} of {ram_total_gb:.0f} gigabytes",
+            ]
+
+            # 2. NVIDIA T1200 GPU & VRAM (via built-in nvidia-smi, zero extra dependencies)
+            try:
+                gpu_out = subprocess.check_output(
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=utilization.gpu,memory.used,memory.total",
+                        "--format=csv,noheader,nounits",
+                    ],
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                ).decode("utf-8").strip()
+
+                gpu_util, vram_used, vram_total = [x.strip() for x in gpu_out.split(",")]
+                vram_used_gb = int(vram_used) / 1024
+                vram_total_gb = int(vram_total) / 1024
+                parts.append(
+                    f"GPU is at {gpu_util} percent with {vram_used_gb:.1f} of {vram_total_gb:.0f} gigabytes VRAM allocated"
+                )
+            except Exception:
+                pass
+
+            # 3. Battery & Charging Status
+            battery = psutil.sensors_battery()
+            if battery:
+                power_state = "plugged in" if battery.power_plugged else "on battery"
+                parts.append(f"Battery is at {battery.percent:.0f} percent and {power_state}")
+
+            return "System diagnostics live, Boss. " + ". ".join(parts) + "."
+
+        except ImportError:
+            return "Telemetry module psutil is missing, Boss. Run pip install psutil to enable live diagnostics."
+        except Exception as e:
+            return f"Diagnostics hit a snag, Boss: {e}"
