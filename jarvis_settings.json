@@ -1,0 +1,51 @@
+{
+  "active_mode": "Normal",
+  "chat_speak_mode": "Speak",
+  "sound_effects": true,
+  "developer_mode_unlocked": true,
+  "developer_secret_code": "STARK-DEV",
+  "dev_core_style": "constellation",
+  "dev_dot_count": 114,
+  "dev_pulse_intensity": 1.35,
+  "batla_quote": "JA CHAT SEY KOUD JA",
+  "intro_tweak": {
+    "enabled": true,
+    "persona_tone": "Sharp, witty, loyal engineering companion",
+    "welcome_template": "Welcome back, Boss. Last session we worked on: {last_work}."
+  },
+  "ideology": {
+    "enabled": true,
+    "proactive_ideas": true
+  },
+  "modes": {
+    "Normal": {
+      "color": "#00E5FF",
+      "apps": [],
+      "prompt_modifier": "Respond clearly, concisely, and helpfully."
+    },
+    "Gaming": {
+      "color": "#FF7A00",
+      "apps": [],
+      "current_game": "blasphamous 2",
+      "unload_vram": true,
+      "prompt_modifier": "Keep responses ultra-brief so the user can focus on gaming."
+    },
+    "Productivity": {
+      "color": "#00FF9D",
+      "apps": [
+        "code"
+      ],
+      "prompt_modifier": "Maximize precision, structure, and actionable engineering depth for productivity tasks."
+    },
+    "Batla": {
+      "color": "#B829FF",
+      "apps": [],
+      "prompt_modifier": "Playful cursed gatekeeper mode."
+    }
+  },
+  "custom_keywords": {
+    "set up workplace": [
+      "code"
+    ]
+  }
+}
