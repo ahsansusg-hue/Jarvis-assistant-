@@ -21,12 +21,14 @@
     "Normal": {
       "color": "#00E5FF",
       "apps": [],
-      "prompt_modifier": "Respond clearly, concisely, and helpfully."
+      "prompt_modifier": "Respond clearly, concisely, and helpfully.",
+      "current_game": "",
+      "unload_vram": true
     },
     "Gaming": {
       "color": "#FF7A00",
       "apps": [],
-      "current_game": "blasphamous 2",
+      "current_game": "D:/Games/Blasphemous/Blasphemous 2/Blasphemous 2.exe",
       "unload_vram": true,
       "prompt_modifier": "Keep responses ultra-brief so the user can focus on gaming."
     },
@@ -47,5 +49,9 @@
     "set up workplace": [
       "code"
     ]
-  }
+  },
+  "ollama_model": "qwen2.5:3b",
+  "show_reticle": true,
+  "show_brackets": true,
+  "auto_listen_after_reply": false
 }

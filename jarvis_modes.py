@@ -1,3 +1,5 @@
+import os
+import subprocess
 import threading
 import time
 
@@ -13,8 +15,20 @@ class JarvisModeEngine:
         self.system = system
         self.brain = brain
 
+    def launch_target(self, target):
+        target = (target or "").strip().strip('"')
+        if not target:
+            return ""
+        if os.path.isfile(target) and target.lower().endswith(".exe"):
+            try:
+                cwd = os.path.dirname(target) or None
+                subprocess.Popen([target], cwd=cwd, shell=False)
+                return f"Launched {os.path.basename(target)}"
+            except Exception as e:
+                return f"Failed to launch {os.path.basename(target)}: {e}"
+        return self.system.open_app(target)
+
     def play_fx(self, fx_type="mode_switch"):
-        """Non-blocking futuristic synthesized audio cues via Windows winsound."""
         if not self.config.settings.get("sound_effects", True) or winsound is None:
             return
 
@@ -57,7 +71,6 @@ class JarvisModeEngine:
         mode_cfg = modes[matched]
 
         self.play_fx("arc_assemble" if matched == "Developer" else "mode_switch")
-
         actions_taken = [f"{matched} Mode engaged"]
 
         if matched == "Gaming":
@@ -65,11 +78,11 @@ class JarvisModeEngine:
                 actions_taken.append(self.brain.unload_model())
             game = mode_cfg.get("current_game", "").strip()
             if game:
-                actions_taken.append(self.system.open_app(game))
+                actions_taken.append(self.launch_target(game))
 
         for app in mode_cfg.get("apps", []):
             if app.strip():
-                actions_taken.append(self.system.open_app(app.strip()))
+                actions_taken.append(self.launch_target(app.strip()))
 
         self.config.record_activity(f"Switched to {matched} Mode")
         return " | ".join(actions_taken)
@@ -80,10 +93,7 @@ class JarvisModeEngine:
         for trigger, apps in keywords.items():
             if trigger.lower() in lower:
                 self.play_fx("macro_run")
-                launched = []
-                for app in apps:
-                    if app.strip():
-                        launched.append(self.system.open_app(app.strip()))
+                launched = [self.launch_target(app) for app in apps if app.strip()]
                 self.config.record_activity(f"Triggered keyword '{trigger}'")
                 if launched:
                     return f"Executing '{trigger}': " + ", ".join(launched)
