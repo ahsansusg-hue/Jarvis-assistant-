@@ -15,6 +15,9 @@ class JarvisModeEngine:
         self.system = system
         self.brain = brain
 
+    def address(self):
+        return (self.config.settings.get("address_as") or "Boss").strip()
+
     def launch_target(self, target):
         target = (target or "").strip().strip('"')
         if not target:
@@ -25,7 +28,7 @@ class JarvisModeEngine:
                 subprocess.Popen([target], cwd=cwd, shell=False)
                 return f"Launched {os.path.basename(target)}"
             except Exception as e:
-                return f"Failed to launch {os.path.basename(target)}: {e}"
+                return f"Could not launch {os.path.basename(target)}: {e}"
         return self.system.open_app(target)
 
     def play_fx(self, fx_type="mode_switch"):
@@ -64,14 +67,14 @@ class JarvisModeEngine:
                 break
 
         if not matched:
-            return f"Mode '{mode_name}' not found, Boss."
+            return f"Mode '{mode_name}' isn't registered, {self.address()}."
 
         self.config.settings["active_mode"] = matched
         self.config.save_settings()
         mode_cfg = modes[matched]
 
         self.play_fx("arc_assemble" if matched == "Developer" else "mode_switch")
-        actions_taken = [f"{matched} Mode engaged"]
+        actions_taken = [f"{matched} Mode live"]
 
         if matched == "Gaming":
             if mode_cfg.get("unload_vram", True) and hasattr(self.brain, "unload_model"):
@@ -94,10 +97,10 @@ class JarvisModeEngine:
             if trigger.lower() in lower:
                 self.play_fx("macro_run")
                 launched = [self.launch_target(app) for app in apps if app.strip()]
-                self.config.record_activity(f"Triggered keyword '{trigger}'")
+                self.config.record_activity(f"Ran '{trigger}'")
                 if launched:
-                    return f"Executing '{trigger}': " + ", ".join(launched)
-                return f"Keyword '{trigger}' triggered, Boss (no apps assigned yet)."
+                    return f"Running '{trigger}': " + ", ".join(launched)
+                return f"Triggered '{trigger}', {self.address()} (no apps linked yet)."
         return None
 
     def is_complex_query(self, text):
@@ -114,6 +117,7 @@ class JarvisModeEngine:
         if macro_res:
             return macro_res
 
+        addr = self.address()
         active_mode = self.config.settings.get("active_mode", "Normal")
         mode_cfg = self.config.settings["modes"].get(active_mode, {})
 
@@ -122,36 +126,36 @@ class JarvisModeEngine:
             if self.is_complex_query(user_text) and required_quote.lower() not in user_text.lower():
                 self.play_fx("batla_lock")
                 return (
-                    f"Acha ji? Baray complex sawal poochay ja rahay hain! "
-                    f"Pehle magic words bolo ('{required_quote}'), phir milega asli jawab!"
+                    f"Ohho {addr}, big serious question? Say the magic line "
+                    f"('{required_quote}') first, then I'll drop the real answer."
                 )
             cleaned = user_text.replace(required_quote, "").replace(required_quote.lower(), "").strip()
             user_text = cleaned or user_text
 
-        context_notes = []
+        context_notes = [f"Address the user as '{addr}'."]
         if self.config.settings.get("intro_tweak", {}).get("enabled", True):
             tone = self.config.settings["intro_tweak"].get("persona_tone", "")
             if tone:
-                context_notes.append(f"Persona: {tone}.")
+                context_notes.append(f"Style: {tone}.")
 
         if self.config.settings.get("ideology", {}).get("enabled", True):
             last_work = self.config.memory.get("last_work", "")
             if last_work:
-                context_notes.append(f"User's current/recent focus: {last_work}.")
+                context_notes.append(f"Recent work context: {last_work}.")
 
         modifier = mode_cfg.get("prompt_modifier", "")
         if modifier:
-            context_notes.append(f"Mode instruction ({active_mode}): {modifier}")
+            context_notes.append(f"Mode rule ({active_mode}): {modifier}")
 
-        enriched_prompt = f"[System Context: {' '.join(context_notes)}]\nUser: {user_text}"
+        enriched_prompt = f"[Context: {' '.join(context_notes)}]\n{addr}: {user_text}"
         self.config.record_activity(user_text[:65])
         return self.brain.think(enriched_prompt)
 
     def generate_ideology_idea(self):
-        last_work = self.config.memory.get("last_work", "Python & JARVIS development")
+        last_work = self.config.memory.get("last_work", "desktop tools & Python")
         recent = ", ".join(self.config.memory.get("recent_activities", [])[:3])
         prompt = (
-            f"Based on my recent work ({last_work}; recent history: {recent}), "
-            f"suggest ONE sharp, high-impact next step or feature idea in 2 concise sentences."
+            f"Address me as '{self.address()}'. Based on my recent work ({last_work}; "
+            f"recent log: {recent}), pitch ONE sharp, practical next step in 2 short sentences."
         )
         return self.brain.think(prompt)

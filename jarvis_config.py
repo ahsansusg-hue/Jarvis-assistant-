@@ -6,19 +6,25 @@ SETTINGS_FILE = "jarvis_settings.json"
 MEMORY_FILE = "jarvis_memory.json"
 
 DEFAULT_SETTINGS = {
+    "address_as": "Boss",
     "active_mode": "Normal",
-    "chat_speak_mode": "Speak",  # "Speak" or "Chat"
+    "chat_speak_mode": "Speak",
     "sound_effects": True,
+    "show_reticle": True,
+    "show_brackets": True,
+    "auto_listen_after_reply": False,
+    "ollama_model": "qwen2.5:3b",
     "developer_mode_unlocked": False,
     "developer_secret_code": "STARK-DEV",
-    "dev_core_style": "arc_reactor",  # "arc_reactor" or "constellation"
+    "dev_core_style": "arc_reactor",
     "dev_dot_count": 84,
     "dev_pulse_intensity": 1.35,
+    "dev_explode_amount": 0.45,
     "batla_quote": "JA CHAT SEY KOUD JA",
     "intro_tweak": {
         "enabled": True,
-        "persona_tone": "Sharp, witty, loyal engineering companion",
-        "welcome_template": "Welcome back, Boss. Last session we worked on: {last_work}.",
+        "persona_tone": "Sharp, grounded, witty companion with real engineering instincts",
+        "welcome_template": "Good to have you back, {address}. Last time we were on: {last_work}.",
     },
     "ideology": {
         "enabled": True,
@@ -28,24 +34,24 @@ DEFAULT_SETTINGS = {
         "Normal": {
             "color": "#00E5FF",
             "apps": [],
-            "prompt_modifier": "Respond clearly, concisely, and helpfully.",
+            "prompt_modifier": "Be direct, sharp, and natural like a trusted human partner.",
         },
         "Gaming": {
             "color": "#FF7A00",
             "apps": [],
             "current_game": "",
             "unload_vram": True,
-            "prompt_modifier": "Keep responses ultra-brief so the user can focus on gaming.",
+            "prompt_modifier": "Keep replies quick and punchy so the user stays in the game.",
         },
         "Productivity": {
             "color": "#00FF9D",
             "apps": ["code"],
-            "prompt_modifier": "Maximize precision, structure, and actionable engineering depth for productivity tasks.",
+            "prompt_modifier": "Stay structured, practical, and focused on getting real work done fast.",
         },
         "Batla": {
             "color": "#B829FF",
             "apps": [],
-            "prompt_modifier": "Playful cursed gatekeeper mode.",
+            "prompt_modifier": "Playful, dramatic gatekeeper energy.",
         },
     },
     "custom_keywords": {
@@ -54,11 +60,11 @@ DEFAULT_SETTINGS = {
 }
 
 DEFAULT_MEMORY = {
-    "last_work": "Day 10 Desktop Interface & Mode Engine",
+    "last_work": "Day 10 HUD & 3D Core",
     "recent_activities": [
-        "Migrated brain to local Ollama qwen2.5:3b",
-        "Built live NVIDIA T1200 VRAM & CPU telemetry",
-        "Designed Day 10 HUD & modular Mode engine",
+        "Built 3D disassembling & reassembling Arc Reactor",
+        "Added mode-scoped settings & address preference",
+        "Connected task engine to voice and text commands",
     ],
     "notes": [],
 }
@@ -100,7 +106,7 @@ class JarvisConfig:
         self._save_json(MEMORY_FILE, self.memory)
 
     def record_activity(self, summary):
-        summary = summary.strip()
+        summary = (summary or "").strip()
         if not summary:
             return
         self.memory["last_work"] = summary
