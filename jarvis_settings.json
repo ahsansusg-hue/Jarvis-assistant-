@@ -1,6 +1,6 @@
 {
   "address_as": "Boss",
-  "active_mode": "Batla",
+  "active_mode": "Normal",
   "chat_speak_mode": "Speak",
   "sound_effects": true,
   "show_reticle": true,
@@ -8,11 +8,11 @@
   "auto_listen_after_reply": false,
   "ollama_model": "qwen2.5:3b",
   "developer_mode_unlocked": true,
-  "developer_secret_code": "STARK-DEV",
-  "dev_core_style": "constellation",
+  "developer_secret_code": "DEV_BLOCK",
+  "dev_ui_theme": "default_sphere",
   "dev_dot_count": 114,
   "dev_pulse_intensity": 1.35,
-  "dev_explode_amount": 0.45,
+  "dev_explode_amount": 1.0,
   "batla_quote": "JA CHAT SEY KOUD JA",
   "intro_tweak": {
     "enabled": true,
@@ -58,5 +58,6 @@
     "jarvis let's chill": [
       "youtube"
     ]
-  }
+  },
+  "dev_core_style": "arc_reactor"
 }

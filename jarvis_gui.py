@@ -14,6 +14,7 @@ from jarvis_speaker import JarvisSpeaker
 from jarvis_core import TaskEngine
 from jarvis_system import JarvisSystem
 from jarvis_brain import JarvisBrain
+from dev_ui_themes import DeveloperUIEngine
 
 
 def apply_dark_title_bar(window):
@@ -26,7 +27,6 @@ def apply_dark_title_bar(window):
         if not hwnd:
             hwnd = window.winfo_id()
         value = ctypes.c_int(1)
-        # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Win 11 / Win 10 20H1+), fallback 19
         res = ctypes.windll.dwmapi.DwmSetWindowAttribute(
             hwnd, 20, ctypes.byref(value), ctypes.sizeof(value)
         )
@@ -216,8 +216,8 @@ class JarvisGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("J.A.R.V.I.S")
-        self.root.geometry("1260x800")
-        self.root.minsize(1040, 680)
+        self.root.geometry("1280x810")
+        self.root.minsize(1060, 680)
         self.root.configure(bg="#060911")
         apply_dark_title_bar(self.root)
 
@@ -233,6 +233,7 @@ class JarvisGUI:
             model=self.config.settings.get("ollama_model", "qwen2.5:3b")
         )
         self.modes = JarvisModeEngine(self.config, self.system, self.brain)
+        self.dev_ui = DeveloperUIEngine()
 
         active = self.config.settings.get("active_mode", "Normal")
         self.current_color = self.config.settings["modes"][active]["color"]
@@ -242,8 +243,6 @@ class JarvisGUI:
         self.angle = 0.0
         self.pulse_phase = 0.0
         self.speech_phase = 0.0
-        self.arc_build_progress = 0.0
-        self.explode_cycle = 0.0
         self.recent_menu_visible = False
         self.settings_win = None
 
@@ -263,7 +262,9 @@ class JarvisGUI:
         s.setdefault("show_reticle", True)
         s.setdefault("show_brackets", True)
         s.setdefault("auto_listen_after_reply", False)
-        s.setdefault("dev_explode_amount", 0.45)
+        s.setdefault("dev_ui_theme", "default_sphere")
+        s.setdefault("dev_explode_amount", 0.65)
+        s["developer_secret_code"] = "DEV_BLOCK"
         if s.get("modes", {}).get("Gaming", {}).get("color") == "#FF2A6D":
             s["modes"]["Gaming"]["color"] = "#FF7A00"
             self.config.save_settings()
@@ -335,6 +336,7 @@ class JarvisGUI:
 
         self.canvas = tk.Canvas(left_panel, bg="#060911", highlightthickness=0, bd=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.canvas.bind("<Button-1>", self._on_canvas_click)
         self.canvas.bind("<Double-Button-1>", self.toggle_recent_tasks_overlay)
 
         self.hint_lbl = tk.Label(
@@ -344,7 +346,7 @@ class JarvisGUI:
         )
         self.hint_lbl.pack(side=tk.BOTTOM, pady=7)
 
-        right_panel = tk.Frame(body, bg="#080D18", width=445, bd=0)
+        right_panel = tk.Frame(body, bg="#080D18", width=430, bd=0)
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(8, 0))
         right_panel.pack_propagate(False)
 
@@ -398,6 +400,18 @@ class JarvisGUI:
     def _bind_shortcuts(self):
         self.canvas.bind("<Button-3>", lambda e: self.trigger_voice_listen())
 
+    def _on_canvas_click(self, event):
+        dev_unlocked = self.config.settings.get("developer_mode_unlocked", False)
+        theme = self.config.settings.get("dev_ui_theme", "default_sphere")
+        if dev_unlocked and theme != "default_sphere":
+            callbacks = {
+                "fx": self.modes.play_fx,
+                "telemetry": self.show_telemetry,
+                "listen": self.trigger_voice_listen,
+                "speak_demo": lambda: self.speak_async(f"Arc reactor schematic online and calibrated, {self._address()}."),
+            }
+            self.dev_ui.handle_click(event.x, event.y, callbacks)
+
     def log(self, sender, msg):
         self.chat_box.configure(state=tk.NORMAL)
         self.chat_box.insert(tk.END, f"[{sender}] {msg}\n\n")
@@ -437,7 +451,7 @@ class JarvisGUI:
         intro = self.config.settings.get("intro_tweak", {})
         addr = self._address()
         if intro.get("enabled", True):
-            last_work = self.config.memory.get("last_work", "Day 10 HUD & 3D Core")
+            last_work = self.config.memory.get("last_work", "Custom Developer UI/UX Themes")
             tmpl = intro.get("welcome_template", "Good to see you, {address}. Last time we were into: {last_work}.")
             try:
                 msg = tmpl.format(address=addr, last_work=last_work)
@@ -658,12 +672,7 @@ class JarvisGUI:
 
         threading.Thread(target=_think_worker, daemon=True).start()
 
-    # --- RHYTHMIC SPEECH PULSATION ENGINE ---
     def _speech_rhythm_value(self):
-        """
-        Produces a lively syllable/cadence wave (0.0 to 1.0) while JARVIS speaks,
-        so the core visibly beats and breathes with speech rhythm.
-        """
         if not self.is_speaking:
             return 0.0
         cadence = 0.5 + 0.5 * math.sin(self.speech_phase * 2.3)
@@ -676,44 +685,41 @@ class JarvisGUI:
         self.title_lbl.configure(fg=self.current_color, text=f"◈ J.A.R.V.I.S  //  {self._address().upper()}")
         self.entry.configure(insertbackground=self.current_color)
 
-        dev_unlocked = self.config.settings.get("developer_mode_unlocked", False)
-        core_style = self.config.settings.get("dev_core_style", "arc_reactor")
-
-        if dev_unlocked and core_style == "arc_reactor":
-            self.arc_build_progress = min(1.0, self.arc_build_progress + 0.035)
-        else:
-            self.arc_build_progress = max(0.0, self.arc_build_progress - 0.05)
-
         rhythm = self._speech_rhythm_value()
-
         self.angle += 0.020 + 0.048 * rhythm
         self.pulse_phase += 0.08 + 0.32 * rhythm
         self.speech_phase += 0.16 if self.is_speaking else 0.02
-        self.explode_cycle = 0.5 - 0.5 * math.cos(self.angle * 0.85)
 
         self.canvas.delete("all")
-        w = max(200, self.canvas.winfo_width())
-        h = max(200, self.canvas.winfo_height())
+        w = max(240, self.canvas.winfo_width())
+        h = max(240, self.canvas.winfo_height())
         cx, cy = w / 2, h / 2
 
-        idle_breath = 0.5 + 0.5 * math.sin(self.pulse_phase)
-        if self.is_speaking:
-            # Strong rhythmic beat with every syllable wave
-            pulse_scale = 0.96 + 0.24 * rhythm
+        dev_unlocked = bool(self.config.settings.get("developer_mode_unlocked", False))
+        theme = self.config.settings.get("dev_ui_theme", "default_sphere") if dev_unlocked else "default_sphere"
+
+        if theme != "default_sphere":
+            self.dev_ui.step(dt=0.025, is_speaking=self.is_speaking, rhythm=rhythm)
+            recent_logs = self.config.memory.get("recent_activities", [])
+            if theme == "chrono_compass":
+                self.dev_ui.draw_chrono_compass(self.canvas, w, h, self.current_color, self.is_speaking, rhythm)
+            elif theme == "sensor_array":
+                self.dev_ui.draw_sensor_array(self.canvas, w, h, self.current_color, self.is_speaking, rhythm)
+            elif theme == "stark_schematic":
+                self.dev_ui.draw_stark_schematic(self.canvas, w, h, self.current_color, self.is_speaking, rhythm, recent_logs)
+            elif theme == "tactical_suite":
+                self.dev_ui.draw_tactical_suite(self.canvas, w, h, self.current_color, self.is_speaking, rhythm, recent_logs)
+            else:
+                self.config.settings["dev_ui_theme"] = "default_sphere"
         else:
-            pulse_scale = 0.99 + 0.03 * idle_breath
-
-        base_r = min(w, h) * 0.23 * pulse_scale
-
-        self._draw_hud_overlay(cx, cy, min(w, h) * 0.34, w, h, rhythm)
-
-        if self.arc_build_progress > 0.05:
-            self._draw_3d_arc_reactor(cx, cy, base_r * 1.12, self.arc_build_progress, rhythm)
-        else:
+            idle_breath = 0.5 + 0.5 * math.sin(self.pulse_phase)
+            pulse_scale = (0.96 + 0.24 * rhythm) if self.is_speaking else (0.99 + 0.03 * idle_breath)
+            base_r = min(w, h) * 0.23 * pulse_scale
+            self._draw_hud_overlay(cx, cy, min(w, h) * 0.34, w, h, rhythm)
             self._draw_constellation_sphere(cx, cy, base_r, rhythm)
 
         if self.recent_menu_visible:
-            self._draw_recent_tasks_network(cx, cy, base_r)
+            self._draw_recent_tasks_network(cx, cy, min(w, h) * 0.23)
 
         self.root.after(25, self._animate)
 
@@ -727,7 +733,6 @@ class JarvisGUI:
                 cx - r_ring, cy - r_ring, cx + r_ring, cy + r_ring,
                 outline=dim_ring, width=1 + (2.0 * rhythm)
             )
-            # Expanding shockwave pulse ring during speech
             if rhythm > 0.05:
                 wave_r = outer_r * (0.85 + 0.30 * rhythm)
                 wave_col = blend_color("#060911", self.current_color, 0.75 * rhythm)
@@ -735,7 +740,6 @@ class JarvisGUI:
                     cx - wave_r, cy - wave_r, cx + wave_r, cy + wave_r,
                     outline=wave_col, width=2
                 )
-
             for seg in range(4):
                 start_deg = math.degrees(self.angle * 0.7) + seg * 90
                 self.canvas.create_arc(
@@ -788,108 +792,6 @@ class JarvisGUI:
             rad = (1.6 + 2.4 * depth) * (1.0 + 0.55 * rhythm)
             self.canvas.create_oval(sx - rad, sy - rad, sx + rad, sy + rad, fill=dot_col, outline="")
 
-    def _proj_3d(self, cx, cy, r, x, y, z, tilt_x=0.52, yaw=0.0):
-        xr, yr, zr = rotate_3d(x, y, z, tilt_x, yaw, 0.0)
-        fov = 3.2
-        persp = fov / max(0.8, fov - zr)
-        return cx + xr * r * persp, cy + yr * r * persp, zr
-
-    def _draw_3d_arc_reactor(self, cx, cy, r, assembly_p, rhythm):
-        tilt_x = 0.58 + 0.14 * math.sin(self.angle * 0.6)
-        yaw = self.angle * 0.85
-        explode_cfg = float(self.config.settings.get("dev_explode_amount", 0.45))
-        # Rhythm nudges the coils and core outward in sync with speech
-        sep = (1.0 - assembly_p) * 0.65 + self.explode_cycle * explode_cfg + 0.14 * rhythm
-
-        segs = 24
-        ring_rad = 0.95 + sep * 0.12
-        for i in range(segs):
-            a0 = (2 * math.pi * i) / segs
-            a1 = (2 * math.pi * (i + 1)) / segs
-            x0, y0, _ = self._proj_3d(cx, cy, r, math.cos(a0) * ring_rad, math.sin(a0) * ring_rad, -0.06 * sep, tilt_x, yaw)
-            x1, y1, _ = self._proj_3d(cx, cy, r, math.cos(a1) * ring_rad, math.sin(a1) * ring_rad, -0.06 * sep, tilt_x, yaw)
-            fx0, fy0, fz0 = self._proj_3d(cx, cy, r, math.cos(a0) * ring_rad, math.sin(a0) * ring_rad, 0.06 * sep, tilt_x, yaw)
-            fx1, fy1, fz1 = self._proj_3d(cx, cy, r, math.cos(a1) * ring_rad, math.sin(a1) * ring_rad, 0.06 * sep, tilt_x, yaw)
-
-            depth = ((fz0 + fz1) * 0.5 + 1.0) * 0.5
-            metal_col = blend_color("#1E293B", "#94A3B8", depth)
-            self.canvas.create_line(x0, y0, x1, y1, fill="#0F172A", width=5)
-            self.canvas.create_line(fx0, fy0, fx1, fy1, fill=metal_col, width=5)
-
-        coil_count = 10
-        coils_3d = []
-        for i in range(coil_count):
-            ang = (2 * math.pi * i) / coil_count
-            radial_dist = 0.72 + sep * 0.34
-            z_offset = (0.14 if i % 2 == 0 else -0.14) * (1.0 + sep * 1.4)
-
-            bx = math.cos(ang) * radial_dist
-            by = math.sin(ang) * radial_dist
-            perp_x, perp_y = -math.sin(ang) * 0.09, math.cos(ang) * 0.09
-            rad_x, rad_y = math.cos(ang) * 0.11, math.sin(ang) * 0.11
-            dz = 0.07
-
-            corners = [
-                (bx - perp_x - rad_x, by - perp_y - rad_y, z_offset - dz),
-                (bx + perp_x - rad_x, by + perp_y - rad_y, z_offset - dz),
-                (bx + perp_x + rad_x, by + perp_y + rad_y, z_offset - dz),
-                (bx - perp_x + rad_x, by - perp_y + rad_y, z_offset - dz),
-                (bx - perp_x - rad_x, by - perp_y - rad_y, z_offset + dz),
-                (bx + perp_x - rad_x, by + perp_y - rad_y, z_offset + dz),
-                (bx + perp_x + rad_x, by + perp_y + rad_y, z_offset + dz),
-                (bx - perp_x + rad_x, by - perp_y + rad_y, z_offset + dz),
-            ]
-            proj_c = [self._proj_3d(cx, cy, r, px, py, pz, tilt_x, yaw) for (px, py, pz) in corners]
-            avg_z = sum(pt[2] for pt in proj_c) / len(proj_c)
-            coils_3d.append((avg_z, proj_c))
-
-        coils_3d.sort(key=lambda item: item[0])
-        for avg_z, pc in coils_3d:
-            depth = (avg_z + 1.0) * 0.5
-            copper_fill = blend_color("#5C2D16", "#E08E55", depth)
-            edge_col = blend_color("#273549", self.current_color, 0.35 + 0.5 * depth + 0.35 * rhythm)
-            front_poly = [coord for pt in pc[4:8] for coord in (pt[0], pt[1])]
-            self.canvas.create_polygon(front_poly, fill=copper_fill, outline=edge_col, width=1 + rhythm)
-            for k in range(4):
-                self.canvas.create_line(pc[k][0], pc[k][1], pc[k + 4][0], pc[k + 4][1], fill=edge_col, width=1)
-
-        inner_z = 0.05 + sep * 0.25
-        inner_r = 0.46 * (1.0 + 0.08 * rhythm)
-        inner_pts = []
-        for s in range(24):
-            a = (2 * math.pi * s) / 24
-            inner_pts.append(self._proj_3d(cx, cy, r, math.cos(a) * inner_r, math.sin(a) * inner_r, inner_z, tilt_x, yaw))
-        for s in range(24):
-            p0 = inner_pts[s]
-            p1 = inner_pts[(s + 1) % 24]
-            self.canvas.create_line(p0[0], p0[1], p1[0], p1[1], fill=self.current_color, width=2 + 1.5 * rhythm)
-
-        for f in range(6):
-            a = (2 * math.pi * f) / 6 + self.angle * 0.4
-            sx0, sy0, _ = self._proj_3d(cx, cy, r, math.cos(a) * 0.22, math.sin(a) * 0.22, inner_z, tilt_x, yaw)
-            sx1, sy1, _ = self._proj_3d(cx, cy, r, math.cos(a) * inner_r, math.sin(a) * inner_r, inner_z, tilt_x, yaw)
-            self.canvas.create_line(sx0, sy0, sx1, sy1, fill="#CBD5E1", width=2)
-
-        core_z = 0.08 + sep * 0.38
-        ccx, ccy, _ = self._proj_3d(cx, cy, r, 0.0, 0.0, core_z, tilt_x, yaw)
-        core_rad = r * 0.16 * (1.0 + 0.38 * rhythm)
-        halo_rad = core_rad * (1.45 + 0.55 * rhythm)
-        glow_col = blend_color(self.current_color, "#FFFFFF", min(0.95, 0.55 + 0.4 * rhythm))
-        self.canvas.create_oval(
-            ccx - halo_rad, ccy - halo_rad,
-            ccx + halo_rad, ccy + halo_rad,
-            outline=glow_col, width=2 + 2.0 * rhythm
-        )
-        self.canvas.create_oval(
-            ccx - core_rad, ccy - core_rad,
-            ccx + core_rad, ccy + core_rad,
-            fill=glow_col, outline="#FFFFFF", width=2
-        )
-        self.canvas.create_text(
-            cx, cy + r + 24, text="3D REACTOR ASSEMBLY",
-            fill=self.current_color, font=("Segoe UI", 8, "bold")
-        )
-
     def _draw_recent_tasks_network(self, cx, cy, r):
         recent = self.config.memory.get("recent_activities", [])[:3]
         if not recent:
@@ -924,7 +826,7 @@ class JarvisGUI:
         win = tk.Toplevel(self.root)
         self.settings_win = win
         win.title("Settings")
-        win.geometry("680x700")
+        win.geometry("700x720")
         win.configure(bg=bg_main)
         apply_dark_title_bar(win)
 
@@ -952,7 +854,7 @@ class JarvisGUI:
         ]:
             pill = HudPillButton(
                 nav_bar, text=label, command=lambda k=key: show_page(k),
-                width=136, height=30, bg=bg_card, fg="#94A3B8", border="#182740",
+                width=142, height=30, bg=bg_card, fg="#94A3B8", border="#182740",
                 font=("Segoe UI", 8, "bold"), parent_bg="#060A13"
             )
             pill.pack(side=tk.LEFT, padx=(0, 8))
@@ -970,6 +872,7 @@ class JarvisGUI:
             e.pack(fill=tk.X, ipady=7, padx=1)
             return e
 
+        # PAGE 1: PERSONAL
         p_me = pages["personal"]
         styled_label(p_me, "How may I address you?", top_pad=0)
         addr_var = tk.StringVar(value=self._address())
@@ -1020,6 +923,7 @@ class JarvisGUI:
             font=("Segoe UI", 8, "bold"), parent_bg=bg_main
         ).pack(anchor="w", pady=(16, 0))
 
+        # PAGE 2: MODE SETTINGS
         p_modes = pages["modes"]
         styled_label(p_modes, "Select Mode to Edit (editing here does NOT switch your active mode):", top_pad=0)
 
@@ -1100,7 +1004,7 @@ class JarvisGUI:
             sp = HudPillButton(
                 mode_selector_row, text=m_name.upper(),
                 command=lambda n=m_name: load_mode_into_form(n),
-                width=125, height=30, bg=bg_card, fg="#94A3B8", border="#182740",
+                width=128, height=30, bg=bg_card, fg="#94A3B8", border="#182740",
                 font=("Segoe UI", 8, "bold"), parent_bg=bg_main
             )
             sp.pack(side=tk.LEFT, padx=(0, 8))
@@ -1132,6 +1036,7 @@ class JarvisGUI:
             font=("Segoe UI", 8, "bold"), parent_bg=bg_main
         ).pack(anchor="w", pady=(16, 0))
 
+        # PAGE 3: KEYWORDS
         p_kw = pages["keywords"]
         styled_label(p_kw, "Trigger Phrase:", top_pad=0)
         kw_trig = tk.StringVar()
@@ -1178,81 +1083,121 @@ class JarvisGUI:
         HudPillButton(kw_bar, text="+ ADD MACRO", command=add_kw, width=125, height=30, bg="#0D2440", fg="#38BDF8", border="#1C4B7D", font=("Segoe UI", 8, "bold"), parent_bg=bg_main).pack(side=tk.LEFT, padx=(0, 8))
         HudPillButton(kw_bar, text="REMOVE", command=del_kw, width=110, height=30, bg="#261018", fg="#FDA4AF", border="#5C1D33", font=("Segoe UI", 8, "bold"), parent_bg=bg_main).pack(side=tk.LEFT)
 
+        # PAGE 4: DEVELOPER
         p_dev = pages["developer"]
-        styled_label(p_dev, "Developer Access Code:", top_pad=0)
-        code_var = tk.StringVar()
-        styled_entry(p_dev, code_var, show="*")
-
         dev_box = tk.Frame(p_dev, bg=bg_main)
+        dev_box.pack(fill=tk.BOTH, expand=True)
 
         def render_dev():
-            for w in dev_box.winfo_children():
-                w.destroy()
+            for w_child in dev_box.winfo_children():
+                w_child.destroy()
+
             if not self.config.settings.get("developer_mode_unlocked", False):
-                tk.Label(dev_box, text="Locked. Enter code to access 3D reactor controls.", bg=bg_main, fg="#64748B", font=("Segoe UI", 9)).pack(anchor="w", pady=10)
+                tk.Label(
+                    dev_box, text="RESTRICTED DEVELOPER WORKSPACE",
+                    bg=bg_main, fg="#94A3B8", font=("Segoe UI", 10, "bold")
+                ).pack(anchor="w", pady=(8, 12))
+
+                code_var = tk.StringVar()
+                ent = styled_entry(dev_box, code_var, show="*")
+
+                def attempt_unlock(_=None):
+                    if code_var.get().strip() == "DEV_BLOCK":
+                        self.config.settings["developer_mode_unlocked"] = True
+                        self.config.save_settings()
+                        self.modes.play_fx("arc_assemble")
+                        render_dev()
+                    else:
+                        code_var.set("")
+                        messagebox.showerror("Access Denied", "Invalid developer credentials.", parent=win)
+
+                ent.bind("<Return>", attempt_unlock)
+                HudPillButton(
+                    dev_box, text="AUTHENTICATE", command=attempt_unlock,
+                    width=145, height=32, bg="#0E1B30", fg="#00E5FF", border="#1F3D66",
+                    font=("Segoe UI", 8, "bold"), parent_bg=bg_main
+                ).pack(anchor="w", pady=(12, 0))
                 return
 
-            tk.Label(dev_box, text="DEVELOPER OVERRIDE ACTIVE", bg=bg_main, fg="#00FF9D", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(6, 10))
-            core_var = tk.StringVar(value=self.config.settings.get("dev_core_style", "arc_reactor"))
+            top_dev_row = tk.Frame(dev_box, bg=bg_main)
+            top_dev_row.pack(fill=tk.X, pady=(0, 10))
+            tk.Label(
+                top_dev_row, text="DEVELOPER UI/UX COLLECTION // INTERACTIVE",
+                bg=bg_main, fg="#00FF9D", font=("Segoe UI", 9, "bold")
+            ).pack(side=tk.LEFT)
 
-            core_row = tk.Frame(dev_box, bg=bg_main)
-            core_row.pack(fill=tk.X, pady=(0, 10))
-            p_arc = HudPillButton(core_row, text="3D ARC REACTOR", command=lambda: set_core("arc_reactor"), width=155, height=30, bg=bg_card, fg="#94A3B8", border="#182740", font=("Segoe UI", 8, "bold"), parent_bg=bg_main)
-            p_arc.pack(side=tk.LEFT, padx=(0, 8))
-            p_sph = HudPillButton(core_row, text="3D NODE SPHERE", command=lambda: set_core("constellation"), width=155, height=30, bg=bg_card, fg="#94A3B8", border="#182740", font=("Segoe UI", 8, "bold"), parent_bg=bg_main)
-            p_sph.pack(side=tk.LEFT)
-
-            def set_core(val):
-                core_var.set(val)
-                p_arc.set_style(fg="#05080F" if val == "arc_reactor" else "#94A3B8", border="#00FF9D" if val == "arc_reactor" else "#182740", active=(val == "arc_reactor"), active_bg="#00FF9D")
-                p_sph.set_style(fg="#05080F" if val == "constellation" else "#94A3B8", border="#00FF9D" if val == "constellation" else "#182740", active=(val == "constellation"), active_bg="#00FF9D")
-
-            set_core(core_var.get())
-
-            styled_label(dev_box, "3D Part Separation Travel (0.0 to 1.0):")
-            explode_var = tk.DoubleVar(value=self.config.settings.get("dev_explode_amount", 0.45))
-            tk.Scale(
-                dev_box, from_=0.0, to=1.0, resolution=0.05, orient=tk.HORIZONTAL, variable=explode_var,
-                bg=bg_main, fg="#E2E8F0", troughcolor=bg_card, highlightthickness=0, bd=0, activebackground="#00FF9D"
-            ).pack(fill=tk.X)
-
-            styled_label(dev_box, "Sphere Node Count (30 to 150):")
-            dots_var = tk.IntVar(value=self.config.settings.get("dev_dot_count", 84))
-            tk.Scale(
-                dev_box, from_=30, to=150, orient=tk.HORIZONTAL, variable=dots_var,
-                bg=bg_main, fg="#E2E8F0", troughcolor=bg_card, highlightthickness=0, bd=0, activebackground="#00FF9D"
-            ).pack(fill=tk.X)
-
-            def apply_dev():
-                self.config.settings["dev_core_style"] = core_var.get()
-                self.config.settings["dev_explode_amount"] = round(float(explode_var.get()), 2)
-                self.config.settings["dev_dot_count"] = int(dots_var.get())
-                self.sphere_points = self._generate_sphere_points(int(dots_var.get()))
+            def lock_dev():
+                self.config.settings["developer_mode_unlocked"] = False
                 self.config.save_settings()
-                self.modes.play_fx("arc_assemble")
+                render_dev()
 
             HudPillButton(
-                dev_box, text="APPLY CORE TWEAKS", command=apply_dev,
-                width=185, height=32, bg="#0B2E22", fg="#00FF9D", border="#1B664B",
-                font=("Segoe UI", 8, "bold"), parent_bg=bg_main
-            ).pack(anchor="w", pady=(14, 0))
+                top_dev_row, text="LOCK", command=lock_dev,
+                width=70, height=24, bg="#261018", fg="#FDA4AF", border="#5C1D33",
+                font=("Segoe UI", 7, "bold"), parent_bg=bg_main
+            ).pack(side=tk.RIGHT)
 
-        def unlock_dev():
-            secret = self.config.settings.get("developer_secret_code", "STARK-DEV")
-            if code_var.get().strip() == secret:
-                self.config.settings["developer_mode_unlocked"] = True
+            tk.Label(
+                dev_box, text="Select Live Interactive UI/UX Architecture:",
+                bg=bg_main, fg="#CBD5E1", font=("Segoe UI", 9, "bold")
+            ).pack(anchor="w", pady=(2, 8))
+
+            theme_catalog = [
+                ("default_sphere", "3D NODE SPHERE", "Standard 3D constellation sphere with speech pulse"),
+                ("chrono_compass", "CHRONO COMPASS", "Cyan & gold astrolabe rings — click core to pulse & lock"),
+                ("sensor_array", "SENSOR ARRAY", "6 clickable SYS dials, circuit traces & main sensor radar"),
+                ("stark_schematic", "STARK SCHEMATIC", "Exploded 3D gold/cyan Arc Reactor with live action toolbar"),
+                ("tactical_suite", "TACTICAL SUITE", "Full Biometrics, CPU/RAM/Storage, Armor & Core command deck"),
+            ]
+
+            current_theme = self.config.settings.get("dev_ui_theme", "default_sphere")
+
+            def select_theme(t_id):
+                self.config.settings["dev_ui_theme"] = t_id
                 self.config.save_settings()
                 self.modes.play_fx("arc_assemble")
                 render_dev()
-            else:
-                messagebox.showerror("Denied", "Incorrect code.", parent=win)
 
-        HudPillButton(
-            p_dev, text="UNLOCK", command=unlock_dev,
-            width=120, height=30, bg="#0E1B30", fg="#00E5FF", border="#1F3D66",
-            font=("Segoe UI", 8, "bold"), parent_bg=bg_main
-        ).pack(anchor="w", pady=(10, 0))
-        dev_box.pack(fill=tk.BOTH, expand=True, pady=10)
+            for tid, title, desc in theme_catalog:
+                is_cur = (tid == current_theme)
+                card = tk.Frame(
+                    dev_box, bg=bg_card, padx=12, pady=9,
+                    highlightthickness=1, highlightbackground="#00FF9D" if is_cur else "#182740"
+                )
+                card.pack(fill=tk.X, pady=4)
+
+                txt_col = tk.Frame(card, bg=bg_card)
+                txt_col.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                tk.Label(txt_col, text=title, bg=bg_card, fg="#F8FAFC", font=("Segoe UI", 9, "bold")).pack(anchor="w")
+                tk.Label(txt_col, text=desc, bg=bg_card, fg="#8FA3BD", font=("Segoe UI", 8)).pack(anchor="w")
+
+                badge = HudPillButton(
+                    card, text="ACTIVE" if is_cur else "ACTIVATE",
+                    command=lambda k=tid: select_theme(k),
+                    width=88, height=26, bg="#080D18",
+                    fg="#05080F" if is_cur else "#94A3B8",
+                    border="#00FF9D" if is_cur else "#1E3150",
+                    active_bg="#00FF9D", font=("Segoe UI", 7, "bold"), parent_bg=bg_card
+                )
+                badge.is_active = is_cur
+                badge.redraw()
+                badge.pack(side=tk.RIGHT)
+
+            styled_label(dev_box, "Stark Schematic Default Separation (0.0 to 1.0):", top_pad=12)
+            exp_var = tk.DoubleVar(value=self.config.settings.get("dev_explode_amount", 0.65))
+
+            def on_exp_change(val):
+                v = round(float(val), 2)
+                self.config.settings["dev_explode_amount"] = v
+                self.dev_ui.schematic_target = v
+                self.config.save_settings()
+
+            tk.Scale(
+                dev_box, from_=0.0, to=1.0, resolution=0.05, orient=tk.HORIZONTAL,
+                variable=exp_var, command=on_exp_change,
+                bg=bg_main, fg="#E2E8F0", troughcolor=bg_card, highlightthickness=0, bd=0, activebackground="#00FF9D"
+            ).pack(fill=tk.X)
+
         render_dev()
 
         start_tab = "modes" if self.config.settings.get("active_mode") == "Gaming" else "personal"

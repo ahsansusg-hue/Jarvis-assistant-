@@ -15,11 +15,11 @@ DEFAULT_SETTINGS = {
     "auto_listen_after_reply": False,
     "ollama_model": "qwen2.5:3b",
     "developer_mode_unlocked": False,
-    "developer_secret_code": "STARK-DEV",
-    "dev_core_style": "arc_reactor",
+    "developer_secret_code": "DEV_BLOCK",
+    "dev_ui_theme": "default_sphere",
     "dev_dot_count": 84,
     "dev_pulse_intensity": 1.35,
-    "dev_explode_amount": 0.45,
+    "dev_explode_amount": 0.65,
     "batla_quote": "JA CHAT SEY KOUD JA",
     "intro_tweak": {
         "enabled": True,
@@ -60,10 +60,10 @@ DEFAULT_SETTINGS = {
 }
 
 DEFAULT_MEMORY = {
-    "last_work": "Day 10 HUD & 3D Core",
+    "last_work": "Custom Developer UI/UX Themes",
     "recent_activities": [
-        "Built 3D disassembling & reassembling Arc Reactor",
-        "Added mode-scoped settings & address preference",
+        "Added 4 interactive Developer UI/UX HUD themes",
+        "Secured Developer Mode with custom access key",
         "Connected task engine to voice and text commands",
     ],
     "notes": [],
@@ -73,6 +73,8 @@ DEFAULT_MEMORY = {
 class JarvisConfig:
     def __init__(self):
         self.settings = self._load_json(SETTINGS_FILE, DEFAULT_SETTINGS)
+        # Always enforce the updated developer secret key
+        self.settings["developer_secret_code"] = "DEV_BLOCK"
         self.memory = self._load_json(MEMORY_FILE, DEFAULT_MEMORY)
 
     def _load_json(self, path, defaults):
@@ -114,5 +116,5 @@ class JarvisConfig:
         entry = f"[{stamp}] {summary}"
         recent = self.memory.setdefault("recent_activities", [])
         recent.insert(0, entry)
-        self.memory["recent_activities"] = recent[:12]
+        self.memory["recent_activities"] = recent[:15]
         self.save_memory()
